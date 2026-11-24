@@ -12,6 +12,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- Font Awesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -39,7 +41,6 @@
       color: #0F172A;
       -webkit-tap-highlight-color: transparent;
     }
-    /* Custom Scrollbar */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -87,10 +88,10 @@
           <div class="flex items-center gap-2">
             <span class="text-xl font-extrabold tracking-tight text-slate-900">Uni<span class="text-emerald-600">Jasa</span></span>
             <span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <i class="fa-solid fa-circle-check text-emerald-600"></i> Khusus Unila
+              <i class="fa-solid fa-shield-check text-emerald-600"></i> MVP Aman
             </span>
           </div>
-          <p class="text-xs text-slate-500 font-medium">Solusi Jasa Mahasiswa Unila</p>
+          <p class="text-xs text-slate-500 font-medium">Ekosistem Jasa Mahasiswa Unila</p>
         </div>
       </div>
 
@@ -115,37 +116,59 @@
         </div>
       </div>
 
-      <!-- Mode Switcher (Mahasiswa vs Mitra) -->
-      <div class="order-2 md:order-3 flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
-        <button id="btn-mode-mahasiswa" onclick="switchAppMode('mahasiswa')" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-white text-emerald-700 shadow-sm">
-          <i class="fa-solid fa-user-graduate"></i>
-          <span>Mahasiswa</span>
-        </button>
-        <button id="btn-mode-mitra" onclick="switchAppMode('mitra')" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition flex items-center gap-1.5 text-slate-600 hover:text-slate-900">
-          <i class="fa-solid fa-store"></i>
-          <span>Mode Mitra</span>
-          <span id="mitra-badge-count" class="hidden ml-0.5 px-1.5 py-0.2 bg-amber-500 text-white text-[10px] rounded-full">0</span>
-        </button>
+      <!-- Auth & Role Status Bar -->
+      <div class="order-2 md:order-3 flex items-center gap-2">
+        <div id="auth-guest-controls" class="flex items-center gap-2">
+          <button onclick="openAuthModal('login')" class="px-3.5 py-2 rounded-xl border border-slate-200 hover:border-emerald-500 text-slate-700 text-xs sm:text-sm font-bold transition">
+            Masuk
+          </button>
+          <button onclick="openAuthModal('register')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition shadow-xs">
+            Daftar Akun
+          </button>
+        </div>
+
+        <div id="auth-user-controls" class="hidden flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+          <div class="text-right leading-tight">
+            <p id="nav-user-name" class="text-xs font-extrabold text-slate-900">Nama User</p>
+            <span id="nav-user-role-badge" class="inline-block px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800">CUSTOMER</span>
+          </div>
+          <button onclick="handleLogout()" title="Keluar" class="ml-1 px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
       </div>
     </div>
   </header>
 
+  <!-- Guest Notice Banner -->
+  <div id="guest-security-banner" class="bg-amber-50 border-b border-amber-200/80">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900">
+      <div class="flex items-center gap-2 font-medium">
+        <i class="fa-solid fa-lock text-amber-600"></i>
+        <span><b>Mode Tamu:</b> Masuk atau daftar akun sebagai <b>Mahasiswa (Customer)</b> atau <b>Penyedia Jasa (Mitra)</b> untuk memesan atau mengelola jasa & pesanan privat secara aman.</span>
+      </div>
+      <button onclick="openAuthModal('register')" class="font-extrabold text-emerald-700 hover:underline">
+        Buat Akun Sekarang &rarr;
+      </button>
+    </div>
+  </div>
+
   <!-- ===================================================================== -->
-  <!-- VIEW 1: MODE MAHASISWA (PEMBELI / PENGGUNA JASA ALA HALODOC)          -->
+  <!-- VIEW 1: MODE MAHASISWA / CUSTOMER (PENCARIAN & PESANAN PRIBADI)      -->
   <!-- ===================================================================== -->
   <main id="view-mahasiswa" class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-8">
     
-    <!-- Active Order Tracker Banner (Appears when user has active orders) -->
+    <!-- Active Order Tracker Banner (Hanya menampilkan pesanan milik Customer yang login) -->
     <section id="active-order-section" class="hidden">
       <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 rounded-2xl p-5 sm:p-6 text-white shadow-lg border border-slate-700/80">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div class="flex items-center gap-2.5">
             <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse-dot"></span>
-            <h2 class="text-base sm:text-lg font-bold">Pesanan Jasa Aktif Kamu</h2>
-            <span id="order-count-pill" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">1 Pesanan</span>
+            <h2 class="text-base sm:text-lg font-bold">Pesanan Saya (Terkunci Per Akun)</h2>
+            <span id="order-count-pill" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">0 Pesanan</span>
           </div>
-          <button onclick="simulateAdvanceOrder()" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold transition flex items-center gap-1.5 shadow-sm">
-            <i class="fa-solid fa-forward-step"></i> Simulasi Update Status (Demo)
+          <button onclick="loadCustomerOrders()" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center gap-1.5">
+            <i class="fa-solid fa-rotate"></i> Refresh Status
           </button>
         </div>
 
@@ -160,7 +183,7 @@
       <div class="relative z-10 max-w-2xl space-y-4">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-xs font-semibold">
           <i class="fa-solid fa-shield-halved text-amber-300"></i>
-          <span>100% Penyedia Jasa Mahasiswa Aktif Unila (Terverifikasi NPM)</span>
+          <span>Autentikasi & Isolasi Data Aktif • Khusus Komunitas Unila</span>
         </div>
         <h1 class="text-2xl sm:text-4xl font-extrabold leading-tight">
           Butuh Jasa Apa Hari Ini di Kampus?
@@ -193,11 +216,11 @@
       <div class="hidden md:block absolute -right-12 -bottom-16 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none"></div>
       <div class="hidden md:flex absolute right-10 bottom-8 items-center gap-3 bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl">
         <div class="w-12 h-12 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center text-xl font-extrabold">
-          <i class="fa-solid fa-bolt"></i>
+          <i class="fa-solid fa-user-shield"></i>
         </div>
         <div>
-          <p class="text-xs text-emerald-100 font-medium">Respon Chat Rata-rata</p>
-          <p class="text-lg font-extrabold text-white">&lt; 3 Menit</p>
+          <p class="text-xs text-emerald-100 font-medium">Keamanan Data</p>
+          <p class="text-sm font-extrabold text-white">Row-Level Security</p>
         </div>
       </div>
     </section>
@@ -216,7 +239,7 @@
       </div>
     </section>
 
-    <!-- Active Service Providers List (Halodoc Doctor-List Style Cards) -->
+    <!-- Active Service Providers List -->
     <section class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -262,51 +285,51 @@
   </main>
 
   <!-- ===================================================================== -->
-  <!-- VIEW 2: MODE MITRA (PENYEDIA JASA MAHASISWA UNILA)                    -->
+  <!-- VIEW 2: MODE MITRA (RUANG PERSONAL TERISOLASI PER MITRA)              -->
   <!-- ===================================================================== -->
   <main id="view-mitra" class="hidden flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
     
     <!-- Mitra Header Card -->
     <section class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
       <div class="flex items-center gap-4">
-        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center text-2xl font-extrabold shadow-md">
-          UJ
+        <div id="mitra-header-avatar" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center text-2xl font-extrabold shadow-md">
+          MT
         </div>
         <div>
           <div class="flex flex-wrap items-center gap-2">
-            <h1 class="text-xl font-extrabold text-slate-900">Dashboard Mitra Mahasiswa</h1>
+            <h1 id="mitra-header-name" class="text-xl font-extrabold text-slate-900">Dashboard Mitra Mahasiswa</h1>
             <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <i class="fa-solid fa-id-card"></i> Terverifikasi KTM Unila
+              <i class="fa-solid fa-lock"></i> Data Terisolasi (RLS Aktif)
             </span>
           </div>
-          <p class="text-sm text-slate-500 mt-0.5">Kelola layanan jasamu, terima konsultasi mahasiswa, dan pantau pesanan masuk.</p>
+          <p class="text-sm text-slate-500 mt-0.5">Hanya layanan milikmu dan pesanan yang ditujukan ke akunmu yang ditampilkan.</p>
         </div>
       </div>
 
       <!-- Quick Stats -->
       <div class="grid grid-cols-3 gap-3 w-full md:w-auto">
         <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-2.5 text-center">
-          <p class="text-[11px] font-semibold text-slate-400 uppercase">Layanan Aktif</p>
-          <p id="mitra-stat-services" class="text-lg font-extrabold text-slate-900">6</p>
+          <p class="text-[11px] font-semibold text-slate-400 uppercase">Jasa Saya</p>
+          <p id="mitra-stat-services" class="text-lg font-extrabold text-slate-900">0</p>
         </div>
         <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-2.5 text-center">
-          <p class="text-[11px] font-semibold text-slate-400 uppercase">Pesanan Masuk</p>
+          <p class="text-[11px] font-semibold text-slate-400 uppercase">Pesanan Saya</p>
           <p id="mitra-stat-orders" class="text-lg font-extrabold text-emerald-600">0</p>
         </div>
         <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-2.5 text-center">
-          <p class="text-[11px] font-semibold text-slate-400 uppercase">Pendapatan</p>
+          <p class="text-[11px] font-semibold text-slate-400 uppercase">Total Omzet</p>
           <p id="mitra-stat-income" class="text-lg font-extrabold text-slate-900">Rp 0</p>
         </div>
       </div>
     </section>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <!-- Left Column: Form Tambah Layanan Baru (Live Onboarding Demo) -->
+      <!-- Left Column: Form Tambah Layanan Baru -->
       <section class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 h-fit">
         <div class="border-b border-slate-100 pb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-emerald-600">Demo Onboarding Mitra</span>
-          <h2 class="text-lg font-extrabold text-slate-900">Daftarkan Jasa Mahasiswa Baru</h2>
-          <p class="text-xs text-slate-500 mt-0.5">Jasa yang ditambahkan akan langsung muncul di halaman pencarian Mahasiswa!</p>
+          <span class="text-xs font-bold uppercase tracking-wider text-emerald-600">Publikasi Jasa Mitra</span>
+          <h2 class="text-lg font-extrabold text-slate-900">Daftarkan Jasa Baru Saya</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Jasa ini otomatis terikat ke ID akun Mitra kamu (`mitra_id`).</p>
         </div>
 
         <form id="add-service-form" onsubmit="handleAddNewService(event)" class="space-y-3.5">
@@ -337,7 +360,7 @@
 
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Kategori Jasa</label>
-            <select id="new-category" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500 bg-white">
+            <select id="new-category" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500 bg-white">
               <option value="Cuci Sepatu & Laundry">Cuci Sepatu & Laundry</option>
               <option value="Print & Fotokopi Kilat">Print & Fotokopi Kilat</option>
               <option value="Desain & Editing">Desain & Editing</option>
@@ -354,7 +377,7 @@
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Harga Mulai (Rp)</label>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Tarif Layanan (Rp)</label>
               <input type="number" id="new-price" required min="1000" step="1000" placeholder="15000" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500">
             </div>
             <div>
@@ -369,20 +392,23 @@
           </div>
 
           <button type="submit" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2">
-            <i class="fa-solid fa-plus-circle"></i> Publikasikan Jasa Sekarang
+            <i class="fa-solid fa-plus-circle"></i> Publikasikan Jasa Saya
           </button>
         </form>
       </section>
 
-      <!-- Right Column: Incoming Orders & Active Services Management -->
+      <!-- Right Column: Incoming Orders & Owned Services Management -->
       <section class="lg:col-span-7 space-y-6">
         <!-- Incoming Orders Panel -->
         <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
           <div class="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <h2 class="text-lg font-extrabold text-slate-900">Pesanan Masuk dari Mahasiswa</h2>
-              <p class="text-xs text-slate-500">Proses pesanan untuk memperbarui status pelacakan konsumen secara real-time</p>
+              <h2 class="text-lg font-extrabold text-slate-900">Pesanan Masuk Untuk Saya</h2>
+              <p class="text-xs text-slate-500">Mitra lain tidak dapat melihat daftar pesanan ini.</p>
             </div>
+            <button onclick="loadMitraWorkspace()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition">
+              <i class="fa-solid fa-rotate mr-1"></i> Muat Ulang
+            </button>
           </div>
 
           <div id="mitra-orders-container" class="space-y-3">
@@ -390,9 +416,9 @@
           </div>
         </div>
 
-        <!-- Registered Services Summary -->
+        <!-- Owned Services Summary -->
         <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <h2 class="text-lg font-extrabold text-slate-900">Daftar Jasa Mahasiswa Terdaftar</h2>
+          <h2 class="text-lg font-extrabold text-slate-900">Layanan Milik Saya</h2>
           <div id="mitra-services-list" class="divide-y divide-slate-100">
             <!-- Rendered dynamically -->
           </div>
@@ -402,22 +428,94 @@
   </main>
 
   <!-- ===================================================================== -->
-  <!-- MODAL 1: CHAT KONSULTASI ALA HALODOC                                  -->
+  <!-- MODAL 0: LOGIN & REGISTER (CUSTOMER VS MITRA)                         -->
+  <!-- ===================================================================== -->
+  <div id="auth-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+      <div class="px-6 py-4 bg-emerald-700 text-white flex items-center justify-between">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-200">Akun UniJasa</span>
+          <h3 id="auth-modal-title" class="text-lg font-extrabold">Masuk ke Akun Kamu</h3>
+        </div>
+        <button onclick="closeAuthModal()" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Mode Tabs: Login vs Register -->
+      <div class="grid grid-cols-2 p-1.5 bg-slate-100 m-5 mb-0 rounded-xl">
+        <button type="button" id="tab-auth-login" onclick="setAuthTab('login')" class="py-2 rounded-lg text-xs font-extrabold bg-white text-emerald-700 shadow-xs transition">
+          Masuk
+        </button>
+        <button type="button" id="tab-auth-register" onclick="setAuthTab('register')" class="py-2 rounded-lg text-xs font-extrabold text-slate-600 transition">
+          Daftar Baru
+        </button>
+      </div>
+
+      <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="p-5 space-y-4">
+        <!-- Field Khusus Register -->
+        <div id="register-extra-fields" class="hidden space-y-3.5">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nama Lengkap / Nama Usaha</label>
+            <input type="text" id="auth-fullname" placeholder="Contoh: Safwa Galbi / Jasa Desain Unila" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5">Pilih Peran Akun</label>
+            <div class="grid grid-cols-2 gap-2.5">
+              <label class="cursor-pointer">
+                <input type="radio" name="authRole" value="customer" checked class="peer sr-only">
+                <div class="p-3 rounded-xl border border-slate-200 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 text-center transition">
+                  <i class="fa-solid fa-user-graduate text-emerald-600 text-base mb-1 block"></i>
+                  <span class="text-xs font-extrabold text-slate-800 block">Mahasiswa</span>
+                  <span class="text-[10px] text-slate-500">Pesan & lacak jasa</span>
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="authRole" value="mitra" class="peer sr-only">
+                <div class="p-3 rounded-xl border border-slate-200 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 text-center transition">
+                  <i class="fa-solid fa-store text-emerald-600 text-base mb-1 block"></i>
+                  <span class="text-xs font-extrabold text-slate-800 block">Mitra Jasa</span>
+                  <span class="text-[10px] text-slate-500">Buka & kelola jasa</span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Email</label>
+          <input type="email" id="auth-email" required placeholder="nama@email.com" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Password</label>
+          <input type="password" id="auth-password" required minlength="6" placeholder="Minimal 6 karakter" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <button type="submit" id="auth-submit-btn" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm transition shadow-md shadow-emerald-600/20">
+          Masuk Sekarang
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 1: CHAT KONSULTASI                                              -->
   <!-- ===================================================================== -->
   <div id="chat-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
     <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] border border-slate-200">
-      <!-- Chat Header -->
       <div class="bg-emerald-700 text-white px-5 py-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div id="chat-avatar" class="w-11 h-11 rounded-full bg-white text-emerald-700 font-extrabold flex items-center justify-center text-base shrink-0">
-            CK
+            UJ
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h3 id="chat-provider-name" class="font-bold text-base leading-tight">CleanKicks Unila</h3>
+              <h3 id="chat-provider-name" class="font-bold text-base leading-tight">Mitra UniJasa</h3>
               <span class="w-2 h-2 rounded-full bg-emerald-300"></span>
             </div>
-            <p id="chat-provider-meta" class="text-xs text-emerald-100">FEB '24 • Online • Respon cepat</p>
+            <p id="chat-provider-meta" class="text-xs text-emerald-100">Mahasiswa Unila • Online</p>
           </div>
         </div>
         <button onclick="closeChatModal()" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition">
@@ -425,31 +523,23 @@
         </button>
       </div>
 
-      <!-- Service Info Strip inside Chat -->
       <div class="bg-emerald-50 border-b border-emerald-100 px-5 py-2.5 flex items-center justify-between gap-2">
         <div class="truncate">
           <p class="text-[11px] font-semibold text-emerald-700">Konsultasi Layanan:</p>
-          <p id="chat-service-title" class="text-xs font-bold text-slate-800 truncate">Cuci Sepatu Express & Deep Clean</p>
+          <p id="chat-service-title" class="text-xs font-bold text-slate-800 truncate">Layanan Mahasiswa</p>
         </div>
         <button onclick="transitionChatToOrder()" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shrink-0 transition shadow-xs">
           Pesan Jasa Ini
         </button>
       </div>
 
-      <!-- Chat Messages Area -->
-      <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50 min-h-[260px]">
-        <!-- Messages rendered dynamically -->
-      </div>
+      <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50 min-h-[260px]"></div>
 
-      <!-- Quick Reply Chips -->
       <div class="px-4 py-2.5 bg-white border-t border-slate-100">
         <p class="text-[11px] font-semibold text-slate-400 mb-1.5">Pertanyaan Cepat (Klik untuk kirim):</p>
-        <div id="chat-quick-replies" class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-          <!-- Rendered dynamically -->
-        </div>
+        <div id="chat-quick-replies" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
       </div>
 
-      <!-- Chat Input Form -->
       <form onsubmit="handleSendChatMessage(event)" class="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
         <input 
           type="text" 
@@ -469,7 +559,6 @@
   <!-- ===================================================================== -->
   <div id="order-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
     <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200">
-      <!-- Header -->
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
         <div>
           <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Formulir Pemesanan</span>
@@ -480,28 +569,22 @@
         </button>
       </div>
 
-      <!-- Body -->
       <form id="checkout-form" onsubmit="handleSubmitOrder(event)" class="p-6 overflow-y-auto space-y-4">
-        <!-- Provider Summary -->
         <div class="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
           <div id="order-avatar" class="w-11 h-11 rounded-xl bg-emerald-600 text-white font-extrabold flex items-center justify-center shrink-0">
-            CK
+            UJ
           </div>
           <div>
-            <h4 id="order-provider-name" class="text-sm font-bold text-slate-900">CleanKicks Unila</h4>
-            <p id="order-service-name" class="text-xs text-slate-500">Cuci Sepatu Express</p>
+            <h4 id="order-provider-name" class="text-sm font-bold text-slate-900">Mitra UniJasa</h4>
+            <p id="order-service-name" class="text-xs text-slate-500">Layanan Mahasiswa</p>
           </div>
         </div>
 
-        <!-- Package Selection -->
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-2">Pilih Paket Layanan</label>
-          <div id="order-packages-container" class="space-y-2">
-            <!-- Radio options rendered dynamically -->
-          </div>
+          <div id="order-packages-container" class="space-y-2"></div>
         </div>
 
-        <!-- Delivery / Meetup Method -->
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-2">Metode Serah Terima (Area Unila)</label>
           <div class="grid grid-cols-2 gap-2.5">
@@ -528,13 +611,11 @@
           </div>
         </div>
 
-        <!-- Location Detail & Notes -->
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Detail Titik Temu / Alamat Kos & Catatan</label>
           <input type="text" id="order-notes" required placeholder="Contoh: Kos Putri Melati Gg. Senggol / Pelataran FEB jam 14.00" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-500">
         </div>
 
-        <!-- Payment Method -->
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-2">Metode Pembayaran (Rekber Kampus)</label>
           <div class="grid grid-cols-2 gap-2.5">
@@ -555,7 +636,6 @@
           </div>
         </div>
 
-        <!-- Total & Submit -->
         <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-4">
           <div>
             <p class="text-xs text-slate-500">Total Pembayaran</p>
@@ -577,15 +657,20 @@
         <i class="fa-solid fa-graduation-cap text-emerald-600"></i>
         <span>UniJasa — Ekosistem Ekonomi Kreatif Mahasiswa Universitas Lampung</span>
       </div>
-      <p>Prototype Ide Usaha Teknologi Digital • Bandar Lampung</p>
+      <p>MVP Terhubung Supabase Auth & RLS • Bandar Lampung</p>
     </div>
   </footer>
 
   <!-- ===================================================================== -->
-  <!-- JAVASCRIPT APPLICATION LOGIC                                          -->
+  <!-- JAVASCRIPT APPLICATION LOGIC (SUPABASE AUTH + RLS ISOLATION)          -->
   <!-- ===================================================================== -->
   <script>
-    // 1. DATA KATEGORI JASA
+    // 1. KONFIGURASI SUPABASE
+    const SUPABASE_URL = 'https://jmtybvcdkiwgsubojsrj.supabase.co';
+    const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_gy5b4hyebr4xy1Whv8dZog_vyz4Fyz5';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    // 2. DATA KATEGORI JASA
     const categories = [
       { id: 'Semua', name: 'Semua Jasa', icon: 'fa-border-all', color: 'bg-slate-100 text-slate-700' },
       { id: 'Cuci Sepatu & Laundry', name: 'Cuci Sepatu', icon: 'fa-shoe-prints', color: 'bg-sky-100 text-sky-600' },
@@ -595,220 +680,57 @@
       { id: 'Les Privat & Tutor', name: 'Tutor & Jastip', icon: 'fa-book-open-reader', color: 'bg-rose-100 text-rose-600' }
     ];
 
-    // 2. DATA AWAL PENYEDIA JASA MAHASISWA UNILA
-    let servicesData = [
-      {
-        id: 1,
-        providerName: 'CleanKicks Unila',
-        studentInfo: "Dimas '23",
-        faculty: 'FEB',
-        category: 'Cuci Sepatu & Laundry',
-        title: 'Cuci Sepatu Express & Deep Clean Kosan',
-        description: 'Spesialis cuci sepatu kanvas, suede, & kulit. Gratis antar-jemput area kos Kampung Baru & pelataran FEB.',
-        startingPrice: 15000,
-        rating: 4.9,
-        reviews: 128,
-        online: true,
-        area: 'Kampung Baru & FEB',
-        avatarBg: 'bg-sky-600',
-        initials: 'CK',
-        packages: [
-          { name: 'Fast Clean (Cuci Bagian Luar - 1 Hari)', price: 15000 },
-          { name: 'Deep Clean (Luar Dalam + Wangi)', price: 25000 },
-          { name: 'Unyellowing Midsole Sepatu', price: 35000 }
-        ],
-        quickQuestions: [
-          'Bisa jemput sepatu di kos Kampung Baru hari ini?',
-          'Kalau Deep Clean selesai berapa lama kak?',
-          'Bisa COD di Pelataran FEB jam istirahat?'
-        ],
-        autoReplies: {
-          'Bisa jemput sepatu di kos Kampung Baru hari ini?': 'Halo kak! Bisa banget, kebetulan kurir mahasiswa kita lagi keliling area Kampung Baru & Jl. Bumi Manti. Langsung klik Pesan Jasa aja ya!',
-          'Kalau Deep Clean selesai berapa lama kak?': 'Untuk Deep Clean standar 2 hari kerja kak, tapi kalau lagi buru-buru bisa pilih paket Express selesai dalam 24 jam.',
-          'Bisa COD di Pelataran FEB jam istirahat?': 'Siap kak! Kita sering titik temu di depan Kantin FEB atau Gedung A jam 12.00 - 13.00.'
-        }
-      },
-      {
-        id: 2,
-        providerName: 'PrintKilat Anak Teknik',
-        studentInfo: "Rizky '22",
-        faculty: 'FT',
-        category: 'Print & Fotokopi Kilat',
-        title: 'Print Tugas, Skripsi & Jilid 24 Jam Antar Fakultas',
-        description: 'Menerima cetak dokumen warna/hitam putih, jilid mika, dan cetak foto. File tinggal kirim lewat chat, langsung diantar ke gedung kuliah!',
-        startingPrice: 5000,
-        rating: 4.9,
-        reviews: 215,
-        online: true,
-        area: 'FT, FMIPA & Rajabasa',
-        avatarBg: 'bg-amber-600',
-        initials: 'PK',
-        packages: [
-          { name: 'Paket Print Tugas Harian (s.d. 20 Lembar)', price: 5000 },
-          { name: 'Print Laporan Praktikum + Jilid Mika', price: 15000 },
-          { name: 'Print Draft Skripsi Lengkap + Antar', price: 35000 }
-        ],
-        quickQuestions: [
-          'Bisa print pagi ini sebelum kelas jam 08.00?',
-          'Antar ke Gedung H Teknik kena ongkir gak?',
-          'Bisa jilid langsung kan kak?'
-        ],
-        autoReplies: {
-          'Bisa print pagi ini sebelum kelas jam 08.00?': 'Bisa kak! Printer kita standby dari jam 06.30 pagi khusus anak Unila yang mepet deadline kelas.',
-          'Antar ke Gedung H Teknik kena ongkir gak?': 'Gratis ongkir kak kalau titik temunya di area Fakultas Teknik & FMIPA!',
-          'Bisa jilid langsung kan kak?': 'Bisa jilid mika, lakban, maupun spiral ring kak. Tinggal tulis di catatan pesanan.'
-        }
-      },
-      {
-        id: 3,
-        providerName: 'Raka Creative Studio',
-        studentInfo: "Raka '24",
-        faculty: 'FISIP',
-        category: 'Desain & Editing',
-        title: 'Jasa Desain Poster UKM, Feeds IG & PPT Presentasi',
-        description: 'Bantu bikin desain poster acara himpunan, sertifikat kepanitiaan, hingga mempercantik slide PPT sidang/tugas kelompok.',
-        startingPrice: 20000,
-        rating: 4.8,
-        reviews: 84,
-        online: true,
-        area: 'FISIP & Semua Fakultas',
-        avatarBg: 'bg-purple-600',
-        initials: 'RC',
-        packages: [
-          { name: 'Desain Slide PPT Presentasi (Max 12 Slide)', price: 20000 },
-          { name: 'Poster Event / Pamflet Kepanitiaan', price: 30000 },
-          { name: 'Paket 3 Konten Feeds Instagram UKM', price: 50000 }
-        ],
-        quickQuestions: [
-          'Bisa revisi berapa kali kalau pesan poster?',
-          'Pengerjaan PPT presentasi bisa selesai malam ini?',
-          'File mentahan Canva/PSD dikasih juga?'
-        ],
-        autoReplies: {
-          'Bisa revisi berapa kali kalau pesan poster?': 'Gratis revisi minor sampai 3x kak sampai sesuai dengan konsep acara himpunan/UKM-nya!',
-          'Pengerjaan PPT presentasi bisa selesai malam ini?': 'Bisa banget kak, kalau materi teksnya sudah siap, 3-4 jam kelar dan langsung kita kirim.',
-          'File mentahan Canva/PSD dikasih juga?': 'Dikasih link template Canva editable-nya juga kak biar gampang kalau mau diedit lagi.'
-        }
-      },
-      {
-        id: 4,
-        providerName: 'TechFix Ilmu Komputer',
-        studentInfo: "Bagas '22",
-        faculty: 'FMIPA',
-        category: 'Servis Laptop & IT',
-        title: 'Instal Ulang Windows, Upgrade SSD & Servis Laptop',
-        description: 'Laptop lemot pas ngerjain tugas atau error menjelang presentasi? Konsultasi gratis, pengerjaan bisa ditunggu di area kampus.',
-        startingPrice: 35000,
-        rating: 5.0,
-        reviews: 96,
-        online: true,
-        area: 'FMIPA & Gedong Meneng',
-        avatarBg: 'bg-emerald-600',
-        initials: 'TF',
-        packages: [
-          { name: 'Instal Software Kuliah (Office, SPSS, AutoCAD)', price: 35000 },
-          { name: 'Instal Ulang Windows + Backup Data Aman', price: 65000 },
-          { name: 'Cleaning Kipas & Ganti Thermal Paste', price: 75000 }
-        ],
-        quickQuestions: [
-          'Data di drive D aman kan kalau instal ulang?',
-          'Bisa instal aplikasi SPSS / Matlab buat skripsi?',
-          'Ketemuan di Perpustakaan Unila bisa kak?'
-        ],
-        autoReplies: {
-          'Data di drive D aman kan kalau instal ulang?': 'Dijamin 100% aman kak, kita cuma format partisi sistem (Drive C) dan data penting tetap utuh.',
-          'Bisa instal aplikasi SPSS / Matlab buat skripsi?': 'Bisa kak, semua software statistik & teknik tersedia lengkap.',
-          'Ketemuan di Perpustakaan Unila bisa kak?': 'Bisa banget kak, kita sering ngerjain di selasar Perpus Pusat Unila sambil ngopi.'
-        }
-      },
-      {
-        id: 5,
-        providerName: 'Nadia Tutor & Jastip',
-        studentInfo: "Nadia '23",
-        faculty: 'FKIP',
-        category: 'Les Privat & Tutor',
-        title: 'Tutor Bahasa Inggris (TOEFL Unila) & Jastip Kampus',
-        description: 'Bimbingan persiapan tes TOEFL UPT Bahasa Unila, translate abstrak skripsi, serta jasa titip beli makanan/berkas antar fakultas.',
-        startingPrice: 10000,
-        rating: 4.9,
-        reviews: 73,
-        online: true,
-        area: 'FKIP, UPT Bahasa & GSG',
-        avatarBg: 'bg-rose-600',
-        initials: 'NT',
-        packages: [
-          { name: 'Jastip Berkas / Makanan Antar Fakultas', price: 10000 },
-          { name: 'Proofreading & Translate Abstrak Skripsi', price: 25000 },
-          { name: 'Privat Intensif TOEFL Unila (90 Menit)', price: 40000 }
-        ],
-        quickQuestions: [
-          'Bisa bantu cek grammar abstrak skripsi hari ini?',
-          'Kalau jastip legalisir berkas di Rektorat bisa?',
-          'Tutor TOEFL-nya online atau tatap muka kak?'
-        ],
-        autoReplies: {
-          'Bisa bantu cek grammar abstrak skripsi hari ini?': 'Bisa kak! Kirim aja teks Indonesia & Inggris-nya, dalam 2 jam sudah selesai dicek.',
-          'Kalau jastip legalisir berkas di Rektorat bisa?': 'Bisa kak, tinggal titik temu di depan Rektorat atau Fakultas ya.',
-          'Tutor TOEFL-nya online atau tatap muka kak?': 'Bisa pilih kak, mau tatap muka di Perpustakaan Unila atau via Google Meet malam hari.'
-        }
-      },
-      {
-        id: 6,
-        providerName: 'Fajar Motor & Kurir Kos',
-        studentInfo: "Fajar '24",
-        faculty: 'FP',
-        category: 'Antar Jemput & Jastip',
-        title: 'Ojek Mahasiswa & Angkut Barang Pindahan Kos',
-        description: 'Antar jemput kuliah pagi biar gak telat absen, atau bantu angkut barang pindahan kos sekitaran Gedong Meneng - Rajabasa.',
-        startingPrice: 8000,
-        rating: 4.8,
-        reviews: 142,
-        online: true,
-        area: 'Pertanian, Rajabasa & Kampung Baru',
-        avatarBg: 'bg-teal-600',
-        initials: 'FM',
-        packages: [
-          { name: 'Antar-Jemput Kos ke Fakultas (PP / Sekali Jalan)', price: 8000 },
-          { name: 'Jastip Belanja Kebutuhan Kos / Print', price: 12000 },
-          { name: 'Bantu Angkut Barang Pindahan Kos Area Unila', price: 30000 }
-        ],
-        quickQuestions: [
-          'Standby jam 7 pagi buat antar ke Pertanian?',
-          'Bisa bantu angkut galon & kipas angin pindah kos?',
-          'Sedia helm cadangan kan bang?'
-        ],
-        autoReplies: {
-          'Standby jam 7 pagi buat antar ke Pertanian?': 'Standby bang/kak! Dari jam 06.30 sudah siap jemput di depan kos.',
-          'Bisa bantu angkut galon & kipas angin pindah kos?': 'Aman kak, bawaan barang kosan bisa kita bantu angkut sekalian.',
-          'Sedia helm cadangan kan bang?': 'Helm SNI cadangan bersih selalu siap di motor kak.'
-        }
-      }
-    ];
-
     // 3. STATE APLIKASI
+    let currentUser = null;
+    let currentProfile = null; // { id, full_name, role: 'customer' | 'mitra' }
+    let servicesData = [];
+    let customerOrdersData = [];
+    let mitraOrdersData = [];
+    let mitraOwnedServices = [];
     let selectedCategory = 'Semua';
     let currentChatService = null;
     let currentOrderService = null;
-    let chatHistory = {}; // Menyimpan riwayat chat per service ID
-    let activeOrders = []; // Menyimpan pesanan aktif mahasiswa
+    let chatHistory = {};
+    let authTabMode = 'login';
 
-    const orderSteps = [
-      'Pesanan Diterima Mitra',
-      'Sedang Dikerjakan',
-      'Siap Diantar / COD',
-      'Selesai'
-    ];
+    const statusLabelMap = {
+      pending: 'Menunggu Mitra',
+      accepted: 'Diterima Mitra',
+      in_progress: 'Sedang Dikerjakan',
+      completed: 'Selesai',
+      cancelled: 'Dibatalkan'
+    };
+
+    const statusStepIndex = {
+      pending: 0,
+      accepted: 1,
+      in_progress: 2,
+      completed: 3,
+      cancelled: 0
+    };
 
     // 4. INISIALISASI HALAMAN
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       renderCategories();
-      renderServices();
-      renderMitraDashboard();
+      await initAuthSession();
+      await loadPublicServices();
     });
 
     // Helper Format Rupiah
     function formatRupiah(angka) {
-      return 'Rp ' + angka.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      const num = Number(angka) || 0;
+      return 'Rp ' + num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    function getInitials(name = 'UJ') {
+      return name.trim().split(/\s+/).map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'UJ';
+    }
+
+    function pickAvatarBg(seedStr = '') {
+      const colors = ['bg-emerald-600', 'bg-sky-600', 'bg-amber-600', 'bg-purple-600', 'bg-rose-600', 'bg-teal-600'];
+      let sum = 0;
+      for (let i = 0; i < seedStr.length; i++) sum += seedStr.charCodeAt(i);
+      return colors[sum % colors.length];
     }
 
     // Toast Notification
@@ -820,7 +742,7 @@
         ? '<i class="fa-solid fa-circle-check text-emerald-600 text-lg"></i>' 
         : '<i class="fa-solid fa-bell text-amber-500 text-lg"></i>';
 
-      toast.className = `pointer-events-auto bg-white border-l-4 ${borderColor} rounded-xl shadow-xl p-3.5 flex items-start gap-3 transform transition-all duration-300 translate-x-0`;
+      toast.className = `pointer-events-auto bg-white border-l-4 ${borderColor} rounded-xl shadow-xl p-3.5 flex items-start gap-3 transform transition-all duration-300`;
       toast.innerHTML = `
         <div class="mt-0.5">${iconHtml}</div>
         <div class="flex-1">
@@ -832,31 +754,255 @@
 
       setTimeout(() => {
         toast.style.opacity = '0';
-        toast.style.transform = 'translateX(20px)';
         setTimeout(() => toast.remove(), 300);
       }, 3500);
     }
 
-    // Switch Mode: Mahasiswa vs Mitra
-    function switchAppMode(mode) {
+    // =====================================================================
+    // AUTENTIKASI & PERAN (CUSTOMER VS MITRA)
+    // =====================================================================
+    async function initAuthSession() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      await applySessionState(session?.user || null);
+
+      supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+        await applySessionState(session?.user || null);
+      });
+    }
+
+    async function applySessionState(user) {
+      currentUser = user;
+      currentProfile = null;
+
+      if (!currentUser) {
+        updateAuthUI();
+        renderActiveCustomerOrders();
+        return;
+      }
+
+      // Ambil profil & peran dari tabel profiles
+      const { data: profile, error } = await supabaseClient
+        .from('profiles')
+        .select('id, full_name, role')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (!error && profile) {
+        currentProfile = profile;
+      } else {
+        // Fallback jika trigger profil belum sempat terbaca
+        currentProfile = {
+          id: currentUser.id,
+          full_name: currentUser.user_metadata?.full_name || currentUser.email.split('@')[0],
+          role: currentUser.user_metadata?.role === 'mitra' ? 'mitra' : 'customer'
+        };
+      }
+
+      updateAuthUI();
+
+      if (currentProfile.role === 'mitra') {
+        await loadMitraWorkspace();
+      } else {
+        await loadCustomerOrders();
+      }
+    }
+
+    function updateAuthUI() {
+      const guestControls = document.getElementById('auth-guest-controls');
+      const userControls = document.getElementById('auth-user-controls');
+      const guestBanner = document.getElementById('guest-security-banner');
       const viewMhs = document.getElementById('view-mahasiswa');
       const viewMitra = document.getElementById('view-mitra');
-      const btnMhs = document.getElementById('btn-mode-mahasiswa');
-      const btnMitra = document.getElementById('btn-mode-mitra');
 
-      if (mode === 'mahasiswa') {
+      if (!currentUser || !currentProfile) {
+        guestControls.classList.remove('hidden');
+        userControls.classList.add('hidden');
+        guestBanner.classList.remove('hidden');
         viewMhs.classList.remove('hidden');
         viewMitra.classList.add('hidden');
-        btnMhs.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-white text-emerald-700 shadow-sm';
-        btnMitra.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition flex items-center gap-1.5 text-slate-600 hover:text-slate-900';
-        renderServices();
-      } else {
+        return;
+      }
+
+      guestControls.classList.add('hidden');
+      userControls.classList.remove('hidden');
+      guestBanner.classList.add('hidden');
+
+      document.getElementById('nav-user-name').textContent = currentProfile.full_name;
+      const badge = document.getElementById('nav-user-role-badge');
+
+      if (currentProfile.role === 'mitra') {
+        badge.textContent = 'MITRA JASA';
+        badge.className = 'inline-block px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-100 text-amber-800';
+        document.getElementById('mitra-header-name').textContent = `Ruang Kerja Mitra: ${currentProfile.full_name}`;
+        document.getElementById('mitra-header-avatar').textContent = getInitials(currentProfile.full_name);
+
+        // Mitra langsung masuk ke dashboard pribadinya (terisolasi dari Mitra lain & bukan alur belanja Customer)
         viewMhs.classList.add('hidden');
         viewMitra.classList.remove('hidden');
-        btnMitra.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-white text-emerald-700 shadow-sm';
-        btnMhs.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition flex items-center gap-1.5 text-slate-600 hover:text-slate-900';
-        renderMitraDashboard();
+      } else {
+        badge.textContent = 'CUSTOMER';
+        badge.className = 'inline-block px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800';
+        viewMhs.classList.remove('hidden');
+        viewMitra.classList.add('hidden');
       }
+    }
+
+    function openAuthModal(defaultTab = 'login') {
+      setAuthTab(defaultTab);
+      document.getElementById('auth-modal').classList.remove('hidden');
+    }
+
+    function closeAuthModal() {
+      document.getElementById('auth-modal').classList.add('hidden');
+    }
+
+    function setAuthTab(tab) {
+      authTabMode = tab;
+      const tabLogin = document.getElementById('tab-auth-login');
+      const tabRegister = document.getElementById('tab-auth-register');
+      const extraFields = document.getElementById('register-extra-fields');
+      const title = document.getElementById('auth-modal-title');
+      const submitBtn = document.getElementById('auth-submit-btn');
+
+      if (tab === 'login') {
+        tabLogin.className = 'py-2 rounded-lg text-xs font-extrabold bg-white text-emerald-700 shadow-xs transition';
+        tabRegister.className = 'py-2 rounded-lg text-xs font-extrabold text-slate-600 transition';
+        extraFields.classList.add('hidden');
+        title.textContent = 'Masuk ke Akun Kamu';
+        submitBtn.textContent = 'Masuk Sekarang';
+      } else {
+        tabRegister.className = 'py-2 rounded-lg text-xs font-extrabold bg-white text-emerald-700 shadow-xs transition';
+        tabLogin.className = 'py-2 rounded-lg text-xs font-extrabold text-slate-600 transition';
+        extraFields.classList.remove('hidden');
+        title.textContent = 'Daftar Akun Baru UniJasa';
+        submitBtn.textContent = 'Buat Akun & Masuk';
+      }
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+      const submitBtn = document.getElementById('auth-submit-btn');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Memproses...';
+
+      try {
+        if (authTabMode === 'login') {
+          const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          showToast('Berhasil Masuk', 'Selamat datang kembali di UniJasa!');
+        } else {
+          const fullName = document.getElementById('auth-fullname').value.trim() || email.split('@')[0];
+          const selectedRole = document.querySelector('input[name="authRole"]:checked')?.value || 'customer';
+
+          const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                full_name: fullName,
+                role: selectedRole
+              }
+            }
+          });
+          if (error) throw error;
+
+          // Pastikan baris profil tersimpan bila session langsung aktif
+          if (data?.user) {
+            await supabaseClient.from('profiles').upsert({
+              id: data.user.id,
+              full_name: fullName,
+              role: selectedRole
+            }, { onConflict: 'id' });
+          }
+
+          showToast('Akun Berhasil Dibuat', `Terdaftar sebagai ${selectedRole === 'mitra' ? 'Mitra Jasa' : 'Mahasiswa (Customer)'}.`);
+        }
+
+        document.getElementById('auth-form').reset();
+        closeAuthModal();
+      } catch (err) {
+        showToast('Gagal Autentikasi', err.message || 'Periksa email dan password kamu.', 'info');
+      } finally {
+        submitBtn.disabled = false;
+        setAuthTab(authTabMode);
+      }
+    }
+
+    async function handleLogout() {
+      await supabaseClient.auth.signOut();
+      customerOrdersData = [];
+      mitraOrdersData = [];
+      mitraOwnedServices = [];
+      showToast('Berhasil Keluar', 'Sesi akun kamu telah ditutup.');
+    }
+
+    // =====================================================================
+    // LAYANAN PUBLIK & FILTERING (UNTUK CUSTOMER)
+    // =====================================================================
+    async function loadPublicServices() {
+      const { data, error } = await supabaseClient
+        .from('services')
+        .select('id, mitra_id, title, category, price, description, created_at')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Gagal memuat layanan:', error.message);
+        servicesData = [];
+        renderServices([]);
+        return;
+      }
+
+      servicesData = (data || []).map((row) => {
+        const meta = parseServiceDescription(row.description);
+        const shortId = row.mitra_id ? row.mitra_id.substring(0, 6) : 'MITRA';
+        const displayProvider = meta.providerName || `Mitra #${shortId}`;
+        return {
+          id: row.id,
+          mitraId: row.mitra_id,
+          providerName: displayProvider,
+          studentInfo: meta.studentInfo || 'Mahasiswa Unila',
+          faculty: meta.faculty || 'UNILA',
+          category: row.category || 'Jasa Mahasiswa',
+          title: row.title,
+          description: meta.cleanDesc || row.description || 'Layanan mahasiswa Universitas Lampung.',
+          startingPrice: Number(row.price) || 0,
+          rating: 4.9,
+          online: true,
+          area: meta.area || 'Kampus Unila',
+          avatarBg: pickAvatarBg(row.mitra_id || row.id),
+          initials: getInitials(displayProvider),
+          packages: [
+            { name: `Paket Standar - ${row.title}`, price: Number(row.price) || 10000 },
+            { name: `Paket Prioritas / Antar Area Kampus`, price: (Number(row.price) || 10000) + 10000 }
+          ]
+        };
+      });
+
+      filterServices();
+    }
+
+    function parseServiceDescription(rawDesc = '') {
+      // Format metadata opsional: [Mitra: Nama | Mhs: Dimas '23 | Fak: FEB | Area: Kampung Baru] Deskripsi
+      const match = rawDesc.match(/^\[Mitra:\s*([^|]+)\|\s*Mhs:\s*([^|]+)\|\s*Fak:\s*([^|]+)\|\s*Area:\s*([^\]]+)\]\s*(.*)$/s);
+      if (match) {
+        return {
+          providerName: match[1].trim(),
+          studentInfo: match[2].trim(),
+          faculty: match[3].trim(),
+          area: match[4].trim(),
+          cleanDesc: match[5].trim()
+        };
+      }
+      return {
+        providerName: null,
+        studentInfo: null,
+        faculty: null,
+        area: null,
+        cleanDesc: rawDesc
+      };
     }
 
     function handleLocationChange() {
@@ -865,7 +1011,6 @@
       filterServices();
     }
 
-    // Render Kategori Grid
     function renderCategories() {
       const grid = document.getElementById('category-grid');
       grid.innerHTML = categories.map(cat => {
@@ -901,15 +1046,16 @@
       filterServices();
     }
 
-    // Filter & Render Daftar Layanan Mahasiswa
     function filterServices() {
       const query = document.getElementById('search-input').value.toLowerCase().trim();
       const faculty = document.getElementById('faculty-filter').value;
 
       const filtered = servicesData.filter(item => {
-        const matchCat = selectedCategory === 'Semua' || item.category.includes(selectedCategory) || (selectedCategory === 'Les Privat & Tutor' && item.category === 'Antar Jemput & Jastip');
-        const matchFaculty = faculty === 'Semua' || item.faculty === faculty;
-        const matchQuery = !query || 
+        const matchCat = selectedCategory === 'Semua' ||
+          item.category.toLowerCase().includes(selectedCategory.toLowerCase()) ||
+          (selectedCategory === 'Les Privat & Tutor' && item.category.toLowerCase().includes('jastip'));
+        const matchFaculty = faculty === 'Semua' || item.faculty.toUpperCase() === faculty.toUpperCase();
+        const matchQuery = !query ||
           item.providerName.toLowerCase().includes(query) ||
           item.title.toLowerCase().includes(query) ||
           item.description.toLowerCase().includes(query) ||
@@ -941,22 +1087,20 @@
       grid.innerHTML = list.map(service => `
         <div class="bg-white rounded-2xl border border-slate-200/90 p-5 hover:shadow-lg hover:border-emerald-300 transition flex flex-col justify-between gap-4">
           <div class="flex items-start gap-4">
-            <!-- Avatar & Online Indicator -->
             <div class="relative shrink-0">
               <div class="w-14 h-14 rounded-2xl ${service.avatarBg} text-white font-extrabold text-lg flex items-center justify-center shadow-sm">
                 ${service.initials}
               </div>
-              <span title="Mitra Online" class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white"></span>
+              <span title="Mitra Aktif" class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white"></span>
             </div>
 
-            <!-- Main Info -->
             <div class="flex-1 min-w-0">
               <div class="flex flex-wrap items-center gap-1.5 mb-1">
                 <span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   ${service.faculty} • ${service.studentInfo}
                 </span>
-                <span class="inline-flex items-center gap-1 text-xs font-bold text-amber-500">
-                  <i class="fa-solid fa-star"></i> ${service.rating} <span class="text-slate-400 font-medium">(${service.reviews})</span>
+                <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-600">
+                  ${service.category}
                 </span>
               </div>
 
@@ -966,19 +1110,18 @@
             </div>
           </div>
 
-          <!-- Footer Price & Halodoc-style Actions -->
           <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <span class="text-[11px] text-slate-400 block font-medium">Tarif Layanan</span>
+              <span class="text-[11px] text-slate-400 block font-medium">Tarif Layanan • ${service.area}</span>
               <span class="text-sm font-extrabold text-slate-900">Mulai ${formatRupiah(service.startingPrice)}</span>
             </div>
 
             <div class="flex items-center gap-2">
-              <button onclick="openChatModal(${service.id})" class="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition flex items-center gap-1.5">
+              <button onclick="openChatModal('${service.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition flex items-center gap-1.5">
                 <i class="fa-regular fa-comments"></i>
-                <span>Chat Konsultasi</span>
+                <span>Konsultasi</span>
               </button>
-              <button onclick="openOrderModal(${service.id})" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs">
+              <button onclick="openOrderModal('${service.id}')" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs">
                 Pesan Jasa
               </button>
             </div>
@@ -988,32 +1131,36 @@
     }
 
     // =====================================================================
-    // CHAT KONSULTASI INTERAKTIF (ALA HALODOC)
+    // CHAT KONSULTASI
     // =====================================================================
     function openChatModal(serviceId) {
-      const service = servicesData.find(s => s.id === serviceId);
+      const service = servicesData.find(s => String(s.id) === String(serviceId));
       if (!service) return;
       currentChatService = service;
 
       document.getElementById('chat-avatar').textContent = service.initials;
       document.getElementById('chat-provider-name').textContent = service.providerName;
-      document.getElementById('chat-provider-meta').textContent = `${service.faculty} (${service.studentInfo}) • Online`;
+      document.getElementById('chat-provider-meta').textContent = `${service.faculty} (${service.studentInfo}) • Area ${service.area}`;
       document.getElementById('chat-service-title').textContent = service.title;
 
-      // Inisialisasi pesan pembuka dari mitra jika belum ada
       if (!chatHistory[service.id]) {
         chatHistory[service.id] = [
           {
             sender: 'mitra',
-            text: `Halo! Saya dari ${service.providerName} (${service.studentInfo} ${service.faculty}). Ada yang bisa dibantu atau mau tanya-tanya dulu soal layanan ${service.category}?`,
+            text: `Halo! Saya dari ${service.providerName} (${service.studentInfo}). Ada yang bisa dibantu mengenai ${service.title}?`,
             time: 'Baru saja'
           }
         ];
       }
 
-      // Render Quick Replies
+      const quickQuestions = [
+        `Apakah layanan ${service.title} tersedia hari ini?`,
+        `Bisa titik temu di area ${service.area}?`,
+        'Bagaimana alur pengerjaan & pembayarannya?'
+      ];
+
       const quickContainer = document.getElementById('chat-quick-replies');
-      quickContainer.innerHTML = service.quickQuestions.map(q => `
+      quickContainer.innerHTML = quickQuestions.map(q => `
         <button type="button" onclick="sendQuickReply('${q.replace(/'/g, "\\'")}')" class="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200 text-xs font-medium text-slate-700 transition">
           ${q}
         </button>
@@ -1028,6 +1175,7 @@
     }
 
     function transitionChatToOrder() {
+      if (!currentChatService) return;
       const id = currentChatService.id;
       closeChatModal();
       openOrderModal(id);
@@ -1048,16 +1196,15 @@
               <span class="text-[10px] text-slate-400 mt-1">${msg.time}</span>
             </div>
           `;
-        } else {
-          return `
-            <div class="flex flex-col items-start">
-              <div class="bg-white border border-slate-200 text-slate-800 px-4 py-2.5 rounded-2xl rounded-tl-xs max-w-[82%] text-xs sm:text-sm shadow-xs">
-                ${msg.text}
-              </div>
-              <span class="text-[10px] text-slate-400 mt-1">${msg.time}</span>
-            </div>
-          `;
         }
+        return `
+          <div class="flex flex-col items-start">
+            <div class="bg-white border border-slate-200 text-slate-800 px-4 py-2.5 rounded-2xl rounded-tl-xs max-w-[82%] text-xs sm:text-sm shadow-xs">
+              ${msg.text}
+            </div>
+            <span class="text-[10px] text-slate-400 mt-1">${msg.time}</span>
+          </div>
+        `;
       }).join('');
 
       container.scrollTop = container.scrollHeight;
@@ -1073,7 +1220,6 @@
       const input = document.getElementById('chat-input');
       const text = input.value.trim();
       if (!text || !currentChatService) return;
-
       input.value = '';
       appendUserAndSimulateReply(text);
     }
@@ -1081,29 +1227,35 @@
     function appendUserAndSimulateReply(text) {
       const id = currentChatService.id;
       const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-
       chatHistory[id].push({ sender: 'user', text, time: now });
       renderChatMessages();
 
-      // Simulasi balasan otomatis dari mitra mahasiswa
       setTimeout(() => {
-        const customReply = currentChatService.autoReplies[text];
-        const fallbackReply = `Siap kak! Untuk "${text}" bisa langsung kita kondisikan di area ${currentChatService.area}. Silakan klik tombol "Pesan Jasa Ini" di atas ya biar langsung masuk jadwal pengerjaan!`;
-        
         chatHistory[id].push({
           sender: 'mitra',
-          text: customReply || fallbackReply,
+          text: `Siap kak! Layanan ${currentChatService.title} siap diproses di area ${currentChatService.area}. Klik "Pesan Jasa Ini" di atas untuk membuat pesanan resmi yang tercatat aman di sistem.`,
           time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
         });
         renderChatMessages();
-      }, 650);
+      }, 500);
     }
 
     // =====================================================================
-    // PEMESANAN & CHECKOUT JASA
+    // PEMESANAN & ISOLASI DATA PESANAN CUSTOMER
     // =====================================================================
     function openOrderModal(serviceId) {
-      const service = servicesData.find(s => s.id === serviceId);
+      if (!currentUser) {
+        showToast('Perlu Masuk Akun', 'Silakan masuk atau daftar akun Customer terlebih dahulu untuk memesan jasa.', 'info');
+        openAuthModal('login');
+        return;
+      }
+
+      if (currentProfile?.role === 'mitra') {
+        showToast('Akun Mitra', 'Akun Mitra dikhususkan untuk mengelola jasa & pesanan yang masuk ke toko kamu.', 'info');
+        return;
+      }
+
+      const service = servicesData.find(s => String(s.id) === String(serviceId));
       if (!service) return;
       currentOrderService = service;
 
@@ -1114,7 +1266,7 @@
       const pkgContainer = document.getElementById('order-packages-container');
       pkgContainer.innerHTML = service.packages.map((pkg, idx) => `
         <label class="cursor-pointer block">
-          <input type="radio" name="selectedPackage" value="${idx}" ${idx === 0 ? 'checked' : ''} onchange="updateOrderTotal(${pkg.price})" class="peer sr-only">
+          <input type="radio" name="selectedPackage" value="${idx}" data-price="${pkg.price}" data-name="${pkg.name.replace(/"/g, '&quot;')}" ${idx === 0 ? 'checked' : ''} onchange="updateOrderTotal(${pkg.price})" class="peer sr-only">
           <div class="p-3 rounded-xl border border-slate-200 peer-checked:border-emerald-600 peer-checked:bg-emerald-50/70 flex items-center justify-between transition">
             <span class="text-xs sm:text-sm font-bold text-slate-800">${pkg.name}</span>
             <span class="text-xs sm:text-sm font-extrabold text-emerald-700">${formatRupiah(pkg.price)}</span>
@@ -1134,109 +1286,157 @@
       document.getElementById('order-total-price').textContent = formatRupiah(price);
     }
 
-    function handleSubmitOrder(e) {
+    async function handleSubmitOrder(e) {
       e.preventDefault();
-      if (!currentOrderService) return;
+      if (!currentOrderService || !currentUser) return;
 
-      const pkgIndex = document.querySelector('input[name="selectedPackage"]:checked').value;
-      const selectedPkg = currentOrderService.packages[pkgIndex];
+      const checkedPkg = document.querySelector('input[name="selectedPackage"]:checked');
+      const pkgName = checkedPkg?.dataset?.name || currentOrderService.title;
+      const pkgPrice = Number(checkedPkg?.dataset?.price) || currentOrderService.startingPrice;
       const deliveryMethod = document.querySelector('input[name="deliveryMethod"]:checked').value;
       const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
-      const notes = document.getElementById('order-notes').value.trim();
+      const notesDetail = document.getElementById('order-notes').value.trim();
 
-      const newOrder = {
-        orderId: 'UJ-' + Math.floor(1000 + Math.random() * 9000),
-        providerName: currentOrderService.providerName,
-        faculty: currentOrderService.faculty,
-        packageName: selectedPkg.name,
-        price: selectedPkg.price,
-        deliveryMethod,
-        paymentMethod,
-        notes,
-        statusStep: 0 // 0: Diterima, 1: Dikerjakan, 2: Siap Diantar, 3: Selesai
-      };
+      const combinedNotes = `${pkgName} (${formatRupiah(pkgPrice)}) | ${deliveryMethod} | ${paymentMethod} | Catatan: ${notesDetail}`;
 
-      activeOrders.unshift(newOrder);
+      const { error } = await supabaseClient
+        .from('orders')
+        .insert({
+          service_id: currentOrderService.id,
+          customer_id: currentUser.id,
+          mitra_id: currentOrderService.mitraId,
+          notes: combinedNotes,
+          status: 'pending'
+        });
+
+      if (error) {
+        showToast('Gagal Membuat Pesanan', error.message || 'Terjadi kendala saat menyimpan pesanan.', 'info');
+        return;
+      }
+
       document.getElementById('checkout-form').reset();
       closeOrderModal();
-
-      renderActiveOrders();
-      renderMitraDashboard();
-      showToast('Pesanan Berhasil Dibuat!', `Pesanan ${newOrder.orderId} diteruskan ke ${newOrder.providerName}.`);
+      await loadCustomerOrders();
+      showToast('Pesanan Tersimpan Aman!', `Pesanan dikirim ke ${currentOrderService.providerName} (${pkgName}).`);
     }
 
-    // Render Live Order Tracker Banner
-    function renderActiveOrders() {
+    async function loadCustomerOrders() {
+      if (!currentUser) {
+        customerOrdersData = [];
+        renderActiveCustomerOrders();
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from('orders')
+        .select('id, service_id, customer_id, mitra_id, notes, status, created_at')
+        .eq('customer_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Gagal memuat pesanan customer:', error.message);
+        customerOrdersData = [];
+      } else {
+        customerOrdersData = data || [];
+      }
+
+      renderActiveCustomerOrders();
+    }
+
+    function renderActiveCustomerOrders() {
       const section = document.getElementById('active-order-section');
       const listContainer = document.getElementById('active-orders-list');
       const countPill = document.getElementById('order-count-pill');
 
-      if (activeOrders.length === 0) {
+      if (!currentUser || currentProfile?.role !== 'customer' || customerOrdersData.length === 0) {
         section.classList.add('hidden');
         return;
       }
 
       section.classList.remove('hidden');
-      countPill.textContent = `${activeOrders.length} Pesanan`;
+      countPill.textContent = `${customerOrdersData.length} Pesanan`;
 
-      listContainer.innerHTML = activeOrders.map(order => {
-        const progressPercent = ((order.statusStep + 1) / orderSteps.length) * 100;
+      listContainer.innerHTML = customerOrdersData.map(order => {
+        const stepIdx = statusStepIndex[order.status] ?? 0;
+        const progressPercent = ((stepIdx + 1) / 4) * 100;
+        const matchedService = servicesData.find(s => String(s.id) === String(order.service_id));
+        const providerLabel = matchedService ? `${matchedService.providerName} (${matchedService.faculty})` : 'Mitra UniJasa';
+        const shortCode = 'ORD-' + String(order.id).substring(0, 6).toUpperCase();
+
         return `
           <div class="bg-white/10 backdrop-blur-xs rounded-xl p-4 border border-white/15 space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <div class="flex items-center gap-2">
-                  <span class="text-xs font-extrabold text-amber-300">${order.orderId}</span>
-                  <span class="text-sm font-bold text-white">${order.providerName} (${order.faculty})</span>
+                  <span class="text-xs font-extrabold text-amber-300">${shortCode}</span>
+                  <span class="text-sm font-bold text-white">${providerLabel}</span>
                 </div>
-                <p class="text-xs text-slate-300 mt-0.5">${order.packageName} • <span class="font-semibold text-emerald-300">${formatRupiah(order.price)}</span></p>
+                <p class="text-xs text-slate-200 mt-1">${order.notes || '-'}</p>
               </div>
               <span class="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500 text-slate-950">
-                ${orderSteps[order.statusStep]}
+                ${statusLabelMap[order.status] || order.status}
               </span>
             </div>
 
-            <!-- Progress Bar -->
             <div class="space-y-1.5">
               <div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
                 <div class="h-full bg-emerald-400 transition-all duration-500" style="width: ${progressPercent}%"></div>
               </div>
               <div class="grid grid-cols-4 text-[10px] sm:text-xs text-slate-300 font-medium">
-                <span class="${order.statusStep >= 0 ? 'text-emerald-300 font-bold' : ''}">1. Diterima</span>
-                <span class="text-center ${order.statusStep >= 1 ? 'text-emerald-300 font-bold' : ''}">2. Dikerjakan</span>
-                <span class="text-center ${order.statusStep >= 2 ? 'text-emerald-300 font-bold' : ''}">3. Antar/COD</span>
-                <span class="text-right ${order.statusStep >= 3 ? 'text-emerald-300 font-bold' : ''}">4. Selesai</span>
+                <span class="${stepIdx >= 0 ? 'text-emerald-300 font-bold' : ''}">1. Menunggu</span>
+                <span class="text-center ${stepIdx >= 1 ? 'text-emerald-300 font-bold' : ''}">2. Diterima</span>
+                <span class="text-center ${stepIdx >= 2 ? 'text-emerald-300 font-bold' : ''}">3. Dikerjakan</span>
+                <span class="text-right ${stepIdx >= 3 ? 'text-emerald-300 font-bold' : ''}">4. Selesai</span>
               </div>
-            </div>
-
-            <div class="text-[11px] text-slate-300 flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-white/10">
-              <span><i class="fa-solid fa-location-dot text-emerald-400 mr-1"></i> ${order.deliveryMethod}: ${order.notes}</span>
-              <span><i class="fa-solid fa-wallet text-amber-400 mr-1"></i> ${order.paymentMethod}</span>
             </div>
           </div>
         `;
       }).join('');
     }
 
-    // Simulasi Update Status Pesanan (Untuk Presentasi)
-    function simulateAdvanceOrder() {
-      if (activeOrders.length === 0) return;
-      const latestOrder = activeOrders[0];
-      if (latestOrder.statusStep < orderSteps.length - 1) {
-        latestOrder.statusStep += 1;
-        renderActiveOrders();
-        renderMitraDashboard();
-        showToast('Status Pesanan Diperbarui', `${latestOrder.orderId}: ${orderSteps[latestOrder.statusStep]}`);
+    // =====================================================================
+    // MODE MITRA: ISOLASI LAYANAN & PESANAN MILIK MITRA YANG LOGIN
+    // =====================================================================
+    async function loadMitraWorkspace() {
+      if (!currentUser || currentProfile?.role !== 'mitra') return;
+
+      // 1. Ambil hanya jasa milik mitra_id yang sedang login
+      const { data: myServices, error: srvErr } = await supabaseClient
+        .from('services')
+        .select('id, mitra_id, title, category, price, description, created_at')
+        .eq('mitra_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      if (srvErr) {
+        console.error('Gagal memuat jasa mitra:', srvErr.message);
+        mitraOwnedServices = [];
       } else {
-        showToast('Pesanan Sudah Selesai', 'Jasa telah diterima konsumen dan dana diteruskan ke Mitra!', 'info');
+        mitraOwnedServices = myServices || [];
       }
+
+      // 2. Ambil hanya pesanan yang ditujukan ke mitra_id yang sedang login
+      const { data: myOrders, error: ordErr } = await supabaseClient
+        .from('orders')
+        .select('id, service_id, customer_id, mitra_id, notes, status, created_at')
+        .eq('mitra_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      if (ordErr) {
+        console.error('Gagal memuat pesanan mitra:', ordErr.message);
+        mitraOrdersData = [];
+      } else {
+        mitraOrdersData = myOrders || [];
+      }
+
+      renderMitraDashboard();
     }
 
-    // =====================================================================
-    // MODE MITRA: ONBOARDING JASA BARU & KELOLA PESANAN
-    // =====================================================================
-    function handleAddNewService(e) {
+    async function handleAddNewService(e) {
       e.preventDefault();
+      if (!currentUser || currentProfile?.role !== 'mitra') {
+        showToast('Akses Khusus Mitra', 'Masuk dengan akun peran Mitra untuk mempublikasikan jasa.', 'info');
+        return;
+      }
 
       const providerName = document.getElementById('new-provider-name').value.trim();
       const studentInfo = document.getElementById('new-student-info').value.trim();
@@ -1247,131 +1447,142 @@
       const area = document.getElementById('new-area').value.trim();
       const description = document.getElementById('new-desc').value.trim();
 
-      const initials = providerName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
-      const colors = ['bg-emerald-600', 'bg-sky-600', 'bg-amber-600', 'bg-purple-600', 'bg-rose-600'];
-      const randomBg = colors[servicesData.length % colors.length];
+      const packedDescription = `[Mitra: ${providerName} | Mhs: ${studentInfo} | Fak: ${faculty} | Area: ${area}] ${description}`;
 
-      const newService = {
-        id: Date.now(),
-        providerName,
-        studentInfo,
-        faculty,
-        category,
-        title,
-        description,
-        startingPrice: price,
-        rating: 5.0,
-        reviews: 1,
-        online: true,
-        area,
-        avatarBg: randomBg,
-        initials,
-        packages: [
-          { name: `Paket Standar - ${title}`, price: price },
-          { name: `Paket Kilat / Express (+Antar Kampus)`, price: price + 10000 }
-        ],
-        quickQuestions: [
-          `Halo kak, layanan ${title} masih tersedia hari ini?`,
-          `Bisa titik temu di area ${area}?`,
-          'Pengerjaannya butuh waktu berapa lama?'
-        ],
-        autoReplies: {
-          [`Halo kak, layanan ${title} masih tersedia hari ini?`]: `Halo! Masih tersedia kak, silakan langsung konsultasi atau buat pesanan ya.`,
-          [`Bisa titik temu di area ${area}?`]: `Bisa banget kak, kita memang melayani area ${area} dan sekitarnya.`
-        }
-      };
+      const { error } = await supabaseClient
+        .from('services')
+        .insert({
+          mitra_id: currentUser.id,
+          title,
+          category,
+          price,
+          description: packedDescription
+        });
 
-      servicesData.unshift(newService);
+      if (error) {
+        showToast('Gagal Publikasi Jasa', error.message || 'Periksa kembali data yang diinput.', 'info');
+        return;
+      }
+
       document.getElementById('add-service-form').reset();
-
-      renderMitraDashboard();
-      showToast('Layanan Berhasil Dipublikasikan!', `${providerName} sekarang sudah tampil di halaman Mahasiswa.`);
+      await loadPublicServices();
+      await loadMitraWorkspace();
+      showToast('Layanan Dipublikasikan!', `${providerName} kini tampil di katalog Mahasiswa dan terikat ke akunmu.`);
     }
 
-    function advanceOrderFromMitra(orderId) {
-      const order = activeOrders.find(o => o.orderId === orderId);
-      if (!order) return;
+    async function updateOrderStatusByMitra(orderId, currentStatus) {
+      const nextStatusMap = {
+        pending: 'accepted',
+        accepted: 'in_progress',
+        in_progress: 'completed'
+      };
+      const nextStatus = nextStatusMap[currentStatus];
+      if (!nextStatus) return;
 
-      if (order.statusStep < orderSteps.length - 1) {
-        order.statusStep += 1;
-        renderMitraDashboard();
-        renderActiveOrders();
-        showToast('Status Diperbarui Mitra', `Pesanan ${order.orderId} -> ${orderSteps[order.statusStep]}`);
+      const { error } = await supabaseClient
+        .from('orders')
+        .update({ status: nextStatus })
+        .eq('id', orderId)
+        .eq('mitra_id', currentUser.id);
+
+      if (error) {
+        showToast('Gagal Update Status', error.message || 'Tidak dapat mengubah status pesanan.', 'info');
+        return;
       }
+
+      await loadMitraWorkspace();
+      showToast('Status Diperbarui', `Pesanan diubah menjadi: ${statusLabelMap[nextStatus]}`);
     }
 
     function renderMitraDashboard() {
-      // Update Stats
-      document.getElementById('mitra-stat-services').textContent = servicesData.length;
-      document.getElementById('mitra-stat-orders').textContent = activeOrders.length;
+      document.getElementById('mitra-stat-services').textContent = mitraOwnedServices.length;
+      document.getElementById('mitra-stat-orders').textContent = mitraOrdersData.length;
 
-      const totalIncome = activeOrders.reduce((acc, o) => acc + o.price, 0);
-      document.getElementById('mitra-stat-income').textContent = formatRupiah(totalIncome);
+      // Hitung estimasi omzet dari nominal yang tercantum di catatan paket atau harga layanan terkait
+      const estimatedIncome = mitraOrdersData.reduce((sum, ord) => {
+        const priceMatch = (ord.notes || '').match(/Rp\s*([\d.]+)/);
+        if (priceMatch) {
+          return sum + (parseInt(priceMatch[1].replace(/\./g, ''), 10) || 0);
+        }
+        const srv = mitraOwnedServices.find(s => String(s.id) === String(ord.service_id));
+        return sum + (Number(srv?.price) || 0);
+      }, 0);
 
-      const badgeCount = document.getElementById('mitra-badge-count');
-      if (activeOrders.length > 0) {
-        badgeCount.textContent = activeOrders.length;
-        badgeCount.classList.remove('hidden');
-      } else {
-        badgeCount.classList.add('hidden');
-      }
+      document.getElementById('mitra-stat-income').textContent = formatRupiah(estimatedIncome);
 
-      // Render Incoming Orders
+      // Render Pesanan Masuk Khusus Mitra Ini
       const ordersContainer = document.getElementById('mitra-orders-container');
-      if (activeOrders.length === 0) {
+      if (mitraOrdersData.length === 0) {
         ordersContainer.innerHTML = `
           <div class="p-6 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-1">
-            <p class="text-sm font-bold text-slate-700">Belum ada pesanan masuk</p>
-            <p class="text-xs text-slate-500">Coba pindah ke tab <b>Mahasiswa</b>, pilih salah satu jasa, lalu klik <b>Pesan Jasa</b> untuk simulasi.</p>
+            <p class="text-sm font-bold text-slate-700">Belum ada pesanan untuk akun Mitra kamu</p>
+            <p class="text-xs text-slate-500">Pesanan dari Customer untuk Mitra lain tidak akan muncul di sini.</p>
           </div>
         `;
       } else {
-        ordersContainer.innerHTML = activeOrders.map(order => {
-          const isFinished = order.statusStep >= orderSteps.length - 1;
-          const nextStepLabel = isFinished ? 'Pesanan Selesai' : `Lanjut: ${orderSteps[order.statusStep + 1]}`;
+        ordersContainer.innerHTML = mitraOrdersData.map(order => {
+          const isFinished = order.status === 'completed' || order.status === 'cancelled';
+          const nextLabels = {
+            pending: 'Terima Pesanan',
+            accepted: 'Mulai Kerjakan',
+            in_progress: 'Tandai Selesai'
+          };
+          const shortCode = 'ORD-' + String(order.id).substring(0, 6).toUpperCase();
+          const srv = mitraOwnedServices.find(s => String(s.id) === String(order.service_id));
+
           return `
-            <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div class="flex items-center gap-2">
-                  <span class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-extrabold">${order.orderId}</span>
-                  <span class="text-sm font-bold text-slate-900">${order.providerName}</span>
+            <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="space-y-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-extrabold">${shortCode}</span>
+                  <span class="text-sm font-bold text-slate-900">${srv?.title || 'Layanan Mitra'}</span>
                 </div>
-                <p class="text-xs font-semibold text-slate-700 mt-1">${order.packageName} (${formatRupiah(order.price)})</p>
-                <p class="text-[11px] text-slate-500 mt-0.5">${order.deliveryMethod} • Catatan: ${order.notes}</p>
-                <p class="text-[11px] font-bold text-emerald-600 mt-1">Status Saat Ini: ${orderSteps[order.statusStep]}</p>
+                <p class="text-xs text-slate-600">${order.notes || '-'}</p>
+                <p class="text-[11px] font-bold text-emerald-700">Status: ${statusLabelMap[order.status] || order.status}</p>
               </div>
-              <button 
-                onclick="advanceOrderFromMitra('${order.orderId}')" 
+
+              <button
+                onclick="updateOrderStatusByMitra('${order.id}', '${order.status}')"
                 ${isFinished ? 'disabled' : ''}
                 class="px-4 py-2 rounded-xl text-xs font-bold transition shrink-0 ${
-                  isFinished 
-                    ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
+                  isFinished
+                    ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
                     : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
                 }"
               >
-                ${nextStepLabel}
+                ${isFinished ? 'Selesai' : (nextLabels[order.status] || 'Update')}
               </button>
             </div>
           `;
         }).join('');
       }
 
-      // Render Registered Services List
+      // Render Daftar Jasa Milik Mitra Ini
       const servicesList = document.getElementById('mitra-services-list');
-      servicesList.innerHTML = servicesData.map(s => `
-        <div class="py-3 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-10 h-10 rounded-xl ${s.avatarBg} text-white font-bold text-xs flex items-center justify-center shrink-0">
-              ${s.initials}
+      if (mitraOwnedServices.length === 0) {
+        servicesList.innerHTML = `
+          <p class="text-xs text-slate-500 py-3">Kamu belum mendaftarkan jasa apa pun. Gunakan formulir di sebelah kiri untuk mulai.</p>
+        `;
+      } else {
+        servicesList.innerHTML = mitraOwnedServices.map(s => {
+          const meta = parseServiceDescription(s.description);
+          const labelName = meta.providerName || s.title;
+          return `
+            <div class="py-3 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl ${pickAvatarBg(s.id)} text-white font-bold text-xs flex items-center justify-center shrink-0">
+                  ${getInitials(labelName)}
+                </div>
+                <div class="truncate">
+                  <p class="text-sm font-bold text-slate-900 truncate">${s.title}</p>
+                  <p class="text-xs text-slate-500 truncate">${s.category} • ${meta.area || 'Kampus Unila'}</p>
+                </div>
+              </div>
+              <span class="text-xs font-extrabold text-emerald-700 shrink-0">${formatRupiah(s.price)}</span>
             </div>
-            <div class="truncate">
-              <p class="text-sm font-bold text-slate-900 truncate">${s.providerName} <span class="text-xs font-medium text-slate-500">(${s.faculty} • ${s.studentInfo})</span></p>
-              <p class="text-xs text-slate-500 truncate">${s.title}</p>
-            </div>
-          </div>
-          <span class="text-xs font-extrabold text-emerald-700 shrink-0">${formatRupiah(s.startingPrice)}</span>
-        </div>
-      `).join('');
+          `;
+        }).join('');
+      }
     }
   </script>
 </body>
